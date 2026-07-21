@@ -1,16 +1,17 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
-use bevy::ecs::entity::EntityHashSet;
 use bevy::ecs::query::QueryData;
-use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
+
+use crate::board::*;
 // use bevy_pancam::{PanCam, PanCamPlugin};
+
+mod board;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, Shape2dPlugin::default()))
-        .init_resource::<TileMap>()
+        .add_plugins((DefaultPlugins, Shape2dPlugin::default(), BoardPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_transforms, pick_block, update_hover))
         .add_observer(on_add_block)
@@ -22,8 +23,6 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     spawn_blocks(&mut commands);
 }
-
-const BLOCK_SIZE: f32 = 128.;
 
 #[derive(Component)]
 struct Block {
@@ -54,36 +53,24 @@ impl Block {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Component)]
-struct TilePosition {
-    x: i32,
-    y: i32,
-}
-
-impl TilePosition {
-    fn tile_center(&self) -> Vec2 {
-        return Vec2::new(self.x as f32, self.y as f32) * BLOCK_SIZE;
-    }
-}
-
-impl std::ops::Add<&PushDirection> for &TilePosition {
-    type Output = TilePosition;
+impl std::ops::Add<&PushDirection> for &CellCoordinate {
+    type Output = CellCoordinate;
 
     fn add(self, rhs: &PushDirection) -> Self::Output {
         match rhs {
-            PushDirection::EAST => TilePosition {
+            PushDirection::EAST => CellCoordinate {
                 x: self.x + 1,
                 ..*self
             },
-            PushDirection::NORTH => TilePosition {
+            PushDirection::NORTH => CellCoordinate {
                 y: self.y + 1,
                 ..*self
             },
-            PushDirection::SOUTH => TilePosition {
+            PushDirection::SOUTH => CellCoordinate {
                 y: self.y - 1,
                 ..*self
             },
-            PushDirection::WEST => TilePosition {
+            PushDirection::WEST => CellCoordinate {
                 x: self.x - 1,
                 ..*self
             },
@@ -101,15 +88,15 @@ fn spawn_blocks(commands: &mut Commands) {
             };
             commands.spawn((
                 Block::default(),
-                TilePosition { x, y },
+                CellCoordinate { x, y },
                 ShapeBundle::rect(
                     &ShapeConfig {
                         color,
-                        corner_radii: Vec4::splat(BLOCK_SIZE / 12.),
+                        corner_radii: Vec4::splat(CELL_SIZE / 12.),
                         thickness: 0.,
                         ..ShapeConfig::default_2d()
                     },
-                    Vec2::splat(BLOCK_SIZE - 2.0),
+                    Vec2::splat(CELL_SIZE - 2.0),
                 ),
             ));
         }
@@ -117,10 +104,10 @@ fn spawn_blocks(commands: &mut Commands) {
 }
 
 fn update_transforms(
-    blocks: Query<(&TilePosition, &mut Transform), (With<Block>, Changed<TilePosition>)>,
+    blocks: Query<(&CellCoordinate, &mut Transform), (With<Block>, Changed<CellCoordinate>)>,
 ) {
-    for (TilePosition { x, y }, mut tf) in blocks {
-        tf.translation = BLOCK_SIZE * (Vec3::X * *x as f32 + Vec3::Y * *y as f32);
+    for (CellCoordinate { x, y }, mut tf) in blocks {
+        tf.translation = CELL_SIZE * (Vec3::X * *x as f32 + Vec3::Y * *y as f32);
     }
 }
 
@@ -129,22 +116,34 @@ fn pick_block(
     button_input: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     windows: Query<&Window>,
-    map: Res<TileMap>,
+    board: Res<Board>,
     hovered: Query<(Entity, &PushDirection), With<Block>>,
 ) {
     let Ok(window) = windows.single() else {
         return;
     };
     let (camera, camera_transform) = *camera;
-    let Some((hovers, direction)) = window
+    let Some(cursor_position) = window
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())
-        .and_then(|cursor_position| map.get_entity(cursor_position))
+    // .map(|cursor_position| CellCoordinate::from_world(cursor_position))
     else {
         remove_all_hovered(&mut commands, hovered);
         return;
     };
+    let cell = CellCoordinate::from_world(cursor_position);
+    let cursor_in_cell = cell.cell_position(cursor_position);
+    let direction = match (
+        cursor_in_cell.y >= cursor_in_cell.x,
+        cursor_in_cell.y >= -cursor_in_cell.x,
+    ) {
+        (false, false) => PushDirection::SOUTH,
+        (false, true) => PushDirection::EAST,
+        (true, false) => PushDirection::WEST,
+        (true, true) => PushDirection::NORTH,
+    };
+    let hovers = board.occupants_at(&cell);
     remove_hovered_except(&mut commands, hovered, &hovers, direction);
     for hover in hovers.iter() {
         commands.entity(*hover).insert_if_new(direction);
@@ -181,9 +180,9 @@ fn remove_hovered_except(
     }
 }
 
-fn on_add_block(add: On<Add, Block>, query: Query<&TilePosition>, mut map: ResMut<TileMap>) {
+fn on_add_block(add: On<Add, Block>, query: Query<&CellCoordinate>, mut board: ResMut<Board>) {
     let tile = query.get(add.entity).unwrap();
-    map.insert(*tile, add.entity);
+    board.add_occupant(*tile, add.entity);
 }
 
 #[derive(Component)]
@@ -212,9 +211,9 @@ fn update_hover(
                 builder.color = Color::srgb(0., 1., 0.);
                 builder
                     .triangle(
-                        Vec2::new(BLOCK_SIZE / 2., 0.),
-                        Vec2::new(BLOCK_SIZE / 4., BLOCK_SIZE / 8.),
-                        Vec2::new(BLOCK_SIZE / 4., -BLOCK_SIZE / 8.),
+                        Vec2::new(CELL_SIZE / 2., 0.),
+                        Vec2::new(CELL_SIZE / 4., CELL_SIZE / 8.),
+                        Vec2::new(CELL_SIZE / 4., -CELL_SIZE / 8.),
                     )
                     .insert(PushArrow);
             });
@@ -230,73 +229,21 @@ struct PushBlock {
 fn on_push_block(
     push: On<PushBlock>,
     mut commands: Commands,
-    query: Query<&TilePosition, With<Block>>,
-    mut map: ResMut<TileMap>,
+    query: Query<&CellCoordinate, With<Block>>,
+    mut board: ResMut<Board>,
 ) {
     let Ok(position) = query.get(push.entity) else {
         return;
     };
-    map.pop(position, &push.entity);
+    board.pop_occupant(position, &push.entity);
     let new_position = position + &push.direction;
-    let pushed = map.get_tile(&new_position);
-    map.insert(new_position, push.entity);
+    let pushed = board.occupants_at(&new_position);
+    board.add_occupant(new_position, push.entity);
     for pushed_block in pushed {
         commands.trigger(PushBlock {
             entity: pushed_block,
             direction: push.direction,
         })
     }
-    // if let Some(pushed) = map.get_tile(&new_position) {
-    //     commands.trigger(PushBlock {
-    //         entity: *pushed,
-    //         direction: push.direction,
-    //     });
-    // }
     commands.entity(push.entity).insert(new_position);
-}
-
-#[derive(Resource, Default)]
-struct TileMap {
-    map: HashMap<TilePosition, EntityHashSet>,
-}
-
-impl TileMap {
-    fn get_tile(&self, tile: &TilePosition) -> Vec<Entity> {
-        if let Some(entities) = self.map.get(tile) {
-            entities.iter().copied().collect()
-        } else {
-            vec![]
-        }
-    }
-
-    fn get_entity(&self, pos: Vec2) -> Option<(Vec<Entity>, PushDirection)> {
-        let normalized = pos + Vec2::splat(BLOCK_SIZE / 2.);
-        let tile = TilePosition {
-            x: (normalized.x / BLOCK_SIZE).floor() as i32,
-            y: (normalized.y / BLOCK_SIZE).floor() as i32,
-        };
-        let entities = self.get_tile(&tile);
-        if entities.is_empty() {
-            return None;
-        }
-        let in_tile = pos - tile.tile_center();
-        let quadrant = match (in_tile.y >= in_tile.x, in_tile.y >= -in_tile.x) {
-            (false, false) => PushDirection::SOUTH,
-            (false, true) => PushDirection::EAST,
-            (true, false) => PushDirection::WEST,
-            (true, true) => PushDirection::NORTH,
-        };
-        Some((entities, quadrant))
-    }
-
-    fn pop(&mut self, tile: &TilePosition, entity: &Entity) -> bool {
-        let Some(entities) = self.map.get_mut(tile) else {
-            return false;
-        };
-        entities.remove(entity)
-    }
-
-    fn insert(&mut self, tile: TilePosition, entity: Entity) -> bool {
-        self.map.entry(tile).or_default().insert(entity)
-    }
 }
