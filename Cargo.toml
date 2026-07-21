@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18.1", features = ["2d", "audio", "ui"] }
+bevy = { version = "0.18.1" }
+bevy_pancam = "0.20.0"
+bevy_vector_shapes = "0.12"
+thiserror = "2.0.18"
 
 [profile.dev]
 opt-level = 1
