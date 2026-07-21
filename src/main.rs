@@ -28,38 +28,12 @@ fn main() {
             ),
         )
         .add_observer(on_add_block)
-        .add_observer(on_push_block)
         .run();
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     spawn_blocks(&mut commands);
-}
-
-impl std::ops::Add<&PickedQuadrant> for &CellCoordinate {
-    type Output = CellCoordinate;
-
-    fn add(self, rhs: &PickedQuadrant) -> Self::Output {
-        match rhs {
-            PickedQuadrant::EAST => CellCoordinate {
-                x: self.x + 1,
-                ..*self
-            },
-            PickedQuadrant::NORTH => CellCoordinate {
-                y: self.y + 1,
-                ..*self
-            },
-            PickedQuadrant::SOUTH => CellCoordinate {
-                y: self.y - 1,
-                ..*self
-            },
-            PickedQuadrant::WEST => CellCoordinate {
-                x: self.x - 1,
-                ..*self
-            },
-        }
-    }
 }
 
 fn spawn_blocks(commands: &mut Commands) {
@@ -97,10 +71,7 @@ fn update_transforms(
 
 fn push_block(mut commands: Commands, picked: Query<(Entity, &PickedQuadrant), With<Block>>) {
     for (entity, quadrant) in picked {
-        commands.trigger(PushBlock {
-            entity,
-            direction: *quadrant,
-        });
+        commands.trigger(PushBlock::from_pick(entity, *quadrant));
     }
 }
 
@@ -142,30 +113,4 @@ fn update_hover(
                     .insert(PushArrow);
             });
     }
-}
-
-#[derive(EntityEvent)]
-struct PushBlock {
-    entity: Entity,
-    direction: PickedQuadrant,
-}
-
-fn on_push_block(
-    push: On<PushBlock>,
-    mut commands: Commands,
-    query: Query<&CellCoordinate, With<Block>>,
-    mut board: ResMut<Board>,
-) {
-    let Ok(position) = query.get(push.entity) else {
-        return;
-    };
-    board.pop_occupant(position, &push.entity);
-    let new_position = position + &push.direction;
-    for pushed in board.add_occupant(new_position, push.entity) {
-        commands.trigger(PushBlock {
-            entity: pushed,
-            direction: push.direction,
-        })
-    }
-    commands.entity(push.entity).insert(new_position);
 }

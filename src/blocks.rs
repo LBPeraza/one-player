@@ -1,16 +1,22 @@
 use bevy::prelude::*;
 
 mod picking;
+mod pushing;
 mod render;
 
 pub use picking::PickedQuadrant;
+pub use pushing::PushBlock;
 
 pub struct BlocksPlugin;
 
 impl Plugin for BlocksPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((picking::PickingPlugin, render::RenderPlugin))
-            .add_systems(Startup, spawn_test_blocks);
+        app.add_plugins((
+            pushing::PushingPlugin,
+            picking::PickingPlugin,
+            render::RenderPlugin,
+        ))
+        .add_systems(Startup, spawn_test_blocks);
     }
 }
 
