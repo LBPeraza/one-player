@@ -32,15 +32,16 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn occupants_at(&self, position: &CellCoordinate) -> Vec<Entity> {
-        match self.occupants.get(position) {
-            None => vec![],
-            Some(entities) => entities.iter().copied().collect(),
-        }
+    pub fn occupants_at(&self, position: &CellCoordinate) -> Option<&EntityHashSet> {
+        self.occupants.get(position)
     }
 
-    pub fn add_occupant(&mut self, position: CellCoordinate, entity: Entity) -> bool {
-        self.occupants.entry(position).or_default().insert(entity)
+    /// Add entity to occupants at position and return the entities that were there before.
+    pub fn add_occupant(&mut self, position: CellCoordinate, entity: Entity) -> Vec<Entity> {
+        let occupants = self.occupants.entry(position).or_default();
+        let current = occupants.iter().copied().collect();
+        occupants.insert(entity);
+        current
     }
 
     pub fn pop_occupant(&mut self, position: &CellCoordinate, entity: &Entity) -> bool {

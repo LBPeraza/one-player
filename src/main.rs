@@ -1,19 +1,32 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
-use bevy::ecs::query::QueryData;
+use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_vector_shapes::prelude::*;
 
-use crate::board::*;
-// use bevy_pancam::{PanCam, PanCamPlugin};
-
+mod blocks;
 mod board;
+
+use crate::blocks::*;
+use crate::board::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, Shape2dPlugin::default(), BoardPlugin))
+        .add_plugins((
+            DefaultPlugins,
+            Shape2dPlugin::default(),
+            BoardPlugin,
+            BlocksPlugin,
+        ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_transforms, pick_block, update_hover))
+        .add_systems(
+            Update,
+            (
+                update_transforms,
+                update_hover,
+                push_block.run_if(input_just_pressed(MouseButton::Left)),
+            ),
+        )
         .add_observer(on_add_block)
         .add_observer(on_push_block)
         .run();
@@ -24,53 +37,24 @@ fn setup(mut commands: Commands) {
     spawn_blocks(&mut commands);
 }
 
-#[derive(Component)]
-struct Block {
-    _width: usize,
-    _shape: Vec<bool>,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Component)]
-enum PushDirection {
-    NORTH,
-    EAST,
-    SOUTH,
-    WEST,
-}
-
-impl Default for Block {
-    fn default() -> Self {
-        Self {
-            _width: 1,
-            _shape: vec![true],
-        }
-    }
-}
-
-impl Block {
-    fn _size(self) -> [usize; 2] {
-        [self._width, self._shape.len() / self._width]
-    }
-}
-
-impl std::ops::Add<&PushDirection> for &CellCoordinate {
+impl std::ops::Add<&PickedQuadrant> for &CellCoordinate {
     type Output = CellCoordinate;
 
-    fn add(self, rhs: &PushDirection) -> Self::Output {
+    fn add(self, rhs: &PickedQuadrant) -> Self::Output {
         match rhs {
-            PushDirection::EAST => CellCoordinate {
+            PickedQuadrant::EAST => CellCoordinate {
                 x: self.x + 1,
                 ..*self
             },
-            PushDirection::NORTH => CellCoordinate {
+            PickedQuadrant::NORTH => CellCoordinate {
                 y: self.y + 1,
                 ..*self
             },
-            PushDirection::SOUTH => CellCoordinate {
+            PickedQuadrant::SOUTH => CellCoordinate {
                 y: self.y - 1,
                 ..*self
             },
-            PushDirection::WEST => CellCoordinate {
+            PickedQuadrant::WEST => CellCoordinate {
                 x: self.x - 1,
                 ..*self
             },
@@ -111,72 +95,12 @@ fn update_transforms(
     }
 }
 
-fn pick_block(
-    mut commands: Commands,
-    button_input: Res<ButtonInput<MouseButton>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
-    windows: Query<&Window>,
-    board: Res<Board>,
-    hovered: Query<(Entity, &PushDirection), With<Block>>,
-) {
-    let Ok(window) = windows.single() else {
-        return;
-    };
-    let (camera, camera_transform) = *camera;
-    let Some(cursor_position) = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
-        .map(|ray| ray.origin.truncate())
-    // .map(|cursor_position| CellCoordinate::from_world(cursor_position))
-    else {
-        remove_all_hovered(&mut commands, hovered);
-        return;
-    };
-    let cell = CellCoordinate::from_world(cursor_position);
-    let cursor_in_cell = cell.cell_position(cursor_position);
-    let direction = match (
-        cursor_in_cell.y >= cursor_in_cell.x,
-        cursor_in_cell.y >= -cursor_in_cell.x,
-    ) {
-        (false, false) => PushDirection::SOUTH,
-        (false, true) => PushDirection::EAST,
-        (true, false) => PushDirection::WEST,
-        (true, true) => PushDirection::NORTH,
-    };
-    let hovers = board.occupants_at(&cell);
-    remove_hovered_except(&mut commands, hovered, &hovers, direction);
-    for hover in hovers.iter() {
-        commands.entity(*hover).insert_if_new(direction);
-    }
-    if button_input.just_pressed(MouseButton::Left) {
-        for hover in hovers {
-            commands.trigger(PushBlock {
-                entity: hover,
-                direction,
-            });
-        }
-    }
-}
-
-fn remove_all_hovered<T: QueryData>(
-    commands: &mut Commands,
-    hovered: Query<(Entity, T), With<Block>>,
-) {
-    for (e, _) in hovered {
-        commands.entity(e).remove::<PushDirection>();
-    }
-}
-
-fn remove_hovered_except(
-    commands: &mut Commands,
-    hovered: Query<(Entity, &PushDirection), With<Block>>,
-    except_entities: &Vec<Entity>,
-    except_direction: PushDirection,
-) {
-    for (e, d) in hovered {
-        if !(except_entities.contains(&e) && *d == except_direction) {
-            commands.entity(e).remove::<PushDirection>();
-        }
+fn push_block(mut commands: Commands, picked: Query<(Entity, &PickedQuadrant), With<Block>>) {
+    for (entity, quadrant) in picked {
+        commands.trigger(PushBlock {
+            entity,
+            direction: *quadrant,
+        });
     }
 }
 
@@ -192,7 +116,7 @@ fn update_hover(
     mut commands: Commands,
     shapes: ShapeCommands,
     old_arrows: Query<Entity, With<PushArrow>>,
-    hovered: Query<(Entity, &PushDirection), With<Block>>,
+    hovered: Query<(Entity, &PickedQuadrant), With<Block>>,
 ) {
     for old in old_arrows {
         commands.entity(old).despawn();
@@ -203,10 +127,10 @@ fn update_hover(
             .with_shape_children(shapes.config(), |builder| {
                 builder.translate(Vec3::Z);
                 builder.rotate_z(match q {
-                    PushDirection::EAST => 0.,
-                    PushDirection::NORTH => FRAC_PI_2,
-                    PushDirection::WEST => PI,
-                    PushDirection::SOUTH => FRAC_PI_2 * 3.,
+                    PickedQuadrant::EAST => 0.,
+                    PickedQuadrant::NORTH => FRAC_PI_2,
+                    PickedQuadrant::WEST => PI,
+                    PickedQuadrant::SOUTH => FRAC_PI_2 * 3.,
                 });
                 builder.color = Color::srgb(0., 1., 0.);
                 builder
@@ -223,7 +147,7 @@ fn update_hover(
 #[derive(EntityEvent)]
 struct PushBlock {
     entity: Entity,
-    direction: PushDirection,
+    direction: PickedQuadrant,
 }
 
 fn on_push_block(
@@ -237,11 +161,9 @@ fn on_push_block(
     };
     board.pop_occupant(position, &push.entity);
     let new_position = position + &push.direction;
-    let pushed = board.occupants_at(&new_position);
-    board.add_occupant(new_position, push.entity);
-    for pushed_block in pushed {
+    for pushed in board.add_occupant(new_position, push.entity) {
         commands.trigger(PushBlock {
-            entity: pushed_block,
+            entity: pushed,
             direction: push.direction,
         })
     }
