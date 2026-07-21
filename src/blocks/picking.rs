@@ -11,7 +11,7 @@ impl Plugin for PickingPlugin {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Component)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Component)]
 pub enum PickedQuadrant {
     NORTH,
     EAST,

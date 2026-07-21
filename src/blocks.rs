@@ -15,12 +15,9 @@ impl Plugin for BlocksPlugin {
             pushing::PushingPlugin,
             picking::PickingPlugin,
             render::RenderPlugin,
-        ))
-        .add_systems(Startup, spawn_test_blocks);
+        ));
     }
 }
-
-fn spawn_test_blocks() {}
 
 #[derive(Default, Clone, PartialEq, Eq, Component)]
 pub struct Block {

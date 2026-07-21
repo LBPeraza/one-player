@@ -19,23 +19,11 @@ fn main() {
 fn spawn_test_blocks(mut commands: Commands) {
     for x in 0..4 {
         for y in 0..3 {
-            let color = if (x + y) % 2 == 0 {
-                Color::BLACK
-            } else {
-                Color::WHITE
-            };
             commands.spawn((
                 Block::default(),
                 CellCoordinate { x, y },
-                ShapeBundle::rect(
-                    &ShapeConfig {
-                        color,
-                        corner_radii: Vec4::splat(CELL_SIZE / 12.),
-                        thickness: 0.,
-                        ..ShapeConfig::default_2d()
-                    },
-                    Vec2::splat(CELL_SIZE - 2.0),
-                ),
+                Transform::default(),
+                Visibility::default(),
             ));
         }
     }
