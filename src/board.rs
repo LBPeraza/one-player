@@ -1,14 +1,18 @@
 use bevy::{ecs::entity::EntityHashSet, platform::collections::HashMap, prelude::*};
 
-pub const CELL_SIZE: f32 = 128.0;
+pub const CELL_SIZE: f32 = 64.0;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Component)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, Component)]
 pub struct CellCoordinate {
     pub x: i32,
     pub y: i32,
 }
 
 impl CellCoordinate {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+
     pub fn from_world(world_position: Vec2) -> Self {
         let normalized = world_position + Vec2::splat(CELL_SIZE / 2.);
         Self {
@@ -39,7 +43,7 @@ impl Board {
     /// Add entity to occupants at position and return the entities that were there before.
     pub fn add_occupant(&mut self, position: CellCoordinate, entity: Entity) -> Vec<Entity> {
         let occupants = self.occupants.entry(position).or_default();
-        let current = occupants.iter().copied().collect();
+        let current = occupants.iter().copied().filter(|e| e != &entity).collect();
         occupants.insert(entity);
         current
     }

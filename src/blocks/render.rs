@@ -26,29 +26,22 @@ fn apply_block_transforms(
     }
 }
 
-fn on_add_block(add: On<Add, Block>, mut commands: Commands, cell: Query<&CellCoordinate>) {
-    let Ok(cell) = cell.get(add.entity) else {
-        warn!(
-            "Added block {} missing CellCoordinate component",
-            add.entity
-        );
-        return;
-    };
+fn on_add_block(add: On<Add, Block>, mut commands: Commands, query: Query<&Block>) {
+    let block = query
+        .get(add.entity)
+        .expect("entity should have Block component");
     commands.entity(add.entity).with_children(|builder| {
-        let color = if (cell.x + cell.y) % 2 == 0 {
-            Color::BLACK
-        } else {
-            Color::WHITE
-        };
-        builder.spawn(ShapeBundle::rect(
-            &ShapeConfig {
-                color,
-                corner_radii: Vec4::splat(CELL_SIZE / 12.),
-                thickness: 0.,
-                ..ShapeConfig::default_2d()
-            },
-            Vec2::splat(CELL_SIZE),
-        ));
+        for cell in block.shape.occupied_cells(CellCoordinate::default()) {
+            builder.spawn(ShapeBundle::rect(
+                &ShapeConfig {
+                    color: block.color,
+                    thickness: 0.,
+                    transform: Transform::from_translation(cell.center().extend(0.)),
+                    ..ShapeConfig::default_2d()
+                },
+                Vec2::splat(CELL_SIZE),
+            ));
+        }
     });
 }
 
@@ -73,11 +66,12 @@ fn on_unpick_block(
 fn on_pick_block(
     add: On<Add, PickedQuadrant>,
     mut commands: Commands,
-    mut query: Query<(&PickedQuadrant, &mut Transform)>,
+    mut query: Query<(&Block, &PickedQuadrant, &mut Transform)>,
 ) {
-    let (quadrant, mut tf) = query
+    let (block, quadrant, mut tf) = query
         .get_mut(add.entity)
-        .expect("query should return just-added quadrant");
+        .expect("entity should have Block, PickedQuadrant, and Transform components");
+    let indicator_color = block.color.rotate_hue(180.);
     tf.translation.z = 1.;
     let rotation = match quadrant {
         PickedQuadrant::EAST => 0.,
@@ -91,11 +85,11 @@ fn on_pick_block(
             ShapeBundle::rect(
                 &ShapeConfig {
                     transform: Transform::from_translation(-Vec3::Z),
-                    color: Color::hsv(0., 0.75, 0.75),
+                    color: indicator_color,
                     corner_radii: Vec4::splat(CELL_SIZE / 12. + 2.),
                     ..ShapeConfig::default_2d()
                 },
-                Vec2::splat(CELL_SIZE + 10.),
+                Vec2::splat(CELL_SIZE * 1.1),
             ),
         ));
         builder.spawn((
@@ -105,10 +99,10 @@ fn on_pick_block(
                     transform: Transform::from_translation(
                         Quat::from_rotation_z(rotation) * (Vec3::X * CELL_SIZE / 3. + Vec3::Z),
                     ),
-                    color: Color::hsv(120., 0.6, 0.75),
+                    color: indicator_color,
                     ..ShapeConfig::default_2d()
                 },
-                10.,
+                CELL_SIZE / 10.,
             ),
         ));
     });

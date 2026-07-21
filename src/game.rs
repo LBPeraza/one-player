@@ -21,13 +21,27 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn push_block(mut commands: Commands, picked: Query<(Entity, &PickedQuadrant), With<Block>>) {
+fn push_block(
+    mut commands: Commands,
+    picked: Query<(Entity, &PickedQuadrant), With<Block>>,
+    coordinates: Query<&CellCoordinate>,
+) {
     for (entity, quadrant) in picked {
-        commands.trigger(PushBlock::from_pick(entity, *quadrant));
+        let Ok(from_coordinate) = coordinates.get(entity) else {
+            warn!("Block {entity} has no CellCoordinate component");
+            continue;
+        };
+        commands.trigger(PushBlock::from_pick(entity, *from_coordinate, *quadrant));
     }
 }
 
-fn on_add_block(add: On<Add, Block>, query: Query<&CellCoordinate>, mut board: ResMut<Board>) {
-    let tile = query.get(add.entity).unwrap();
-    board.add_occupant(*tile, add.entity);
+fn on_add_block(
+    add: On<Add, Block>,
+    query: Query<(&Block, &CellCoordinate)>,
+    mut board: ResMut<Board>,
+) {
+    let (block, cell) = query.get(add.entity).unwrap();
+    for occupied in block.shape.occupied_cells(*cell) {
+        board.add_occupant(occupied, add.entity);
+    }
 }
