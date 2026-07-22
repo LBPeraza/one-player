@@ -44,7 +44,7 @@ fn on_add_block(add: On<Add, Block>, mut commands: Commands, query: Query<&Block
                 &ShapeConfig {
                     color: block.color,
                     thickness: 0.,
-                    corner_radii: get_corner_radii(cell, &occupied_cells),
+                    corner_radii: get_corner_radii(cell, &occupied_cells) * CORNER_RADIUS,
                     transform: Transform::from_translation(cell.center().extend(0.)),
                     ..ShapeConfig::default_2d()
                 },
@@ -68,7 +68,7 @@ fn get_corner_radii(cell: &CellCoordinate, occupied_cells: &Vec<CellCoordinate>)
     let has_cell_down = occupied_cells.contains(&(*cell + (0, -1)));
     let has_cell_left = occupied_cells.contains(&(*cell + (-1, 0)));
     // start bottom right, clockwise
-    let cr = |radius| if radius { CORNER_RADIUS } else { 0. };
+    let cr = |radius| if radius { 1. } else { 0. };
     Vec4::new(
         cr(!(has_cell_down || has_cell_right)),
         cr(!(has_cell_down || has_cell_left)),
@@ -301,8 +301,9 @@ fn on_pick_block(
         .expect("entity should have Block, and Transform components");
     let indicator_color = block.color.rotate_hue(180.);
     tf.translation.z = 2.;
+    let occupied_cells = block.shape.occupied_cells(default()).collect::<Vec<_>>();
     commands.entity(add.entity).with_children(|builder| {
-        for occupied_cell in block.shape.occupied_cells(default()) {
+        for occupied_cell in occupied_cells.iter() {
             builder.spawn((
                 HoverIndicator,
                 ShapeBundle::rect(
@@ -313,7 +314,8 @@ fn on_pick_block(
                             -0.5,
                         )),
                         color: indicator_color,
-                        corner_radii: Vec4::splat(PICK_HIGHLIGHT_RADIUS),
+                        corner_radii: get_corner_radii(occupied_cell, &occupied_cells)
+                            * PICK_HIGHLIGHT_RADIUS,
                         ..ShapeConfig::default_2d()
                     },
                     Vec2::splat(CELL_SIZE + PICK_HIGHLIGHT_RADIUS),
