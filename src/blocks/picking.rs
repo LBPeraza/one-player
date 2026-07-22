@@ -13,10 +13,10 @@ impl Plugin for PickingPlugin {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Component)]
 pub enum PickedQuadrant {
-    NORTH,
-    EAST,
-    SOUTH,
-    WEST,
+    North,
+    East,
+    South,
+    West,
 }
 
 fn pick_blocks(
@@ -50,10 +50,10 @@ fn pick_blocks(
         cursor_in_cell.y >= cursor_in_cell.x,
         cursor_in_cell.y >= -cursor_in_cell.x,
     ) {
-        (false, false) => PickedQuadrant::SOUTH,
-        (false, true) => PickedQuadrant::EAST,
-        (true, false) => PickedQuadrant::WEST,
-        (true, true) => PickedQuadrant::NORTH,
+        (false, false) => PickedQuadrant::South,
+        (false, true) => PickedQuadrant::East,
+        (true, false) => PickedQuadrant::West,
+        (true, true) => PickedQuadrant::North,
     };
 
     remove_picked_except(&mut commands, picked, picked_blocks, &picked_quadrant);

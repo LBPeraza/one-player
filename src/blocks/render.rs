@@ -20,9 +20,9 @@ impl Plugin for RenderPlugin {
     }
 }
 
-fn apply_block_transforms(
-    blocks: Query<(&CellCoordinate, &mut Transform), (With<Block>, Changed<CellCoordinate>)>,
-) {
+type MovedBlock = (With<Block>, Changed<CellCoordinate>);
+
+fn apply_block_transforms(blocks: Query<(&CellCoordinate, &mut Transform), MovedBlock>) {
     for (CellCoordinate { x, y }, mut tf) in blocks {
         debug!("Applying translation to move block to ({x}, {y})");
         tf.translation = CELL_SIZE * (Vec3::new(*x as f32, *y as f32, 0.));
@@ -62,7 +62,7 @@ fn on_add_block(add: On<Add, Block>, mut commands: Commands, query: Query<&Block
 
 const CORNER_RADIUS: f32 = CELL_SIZE / 16.;
 
-fn get_corner_radii(cell: &CellCoordinate, occupied_cells: &Vec<CellCoordinate>) -> Vec4 {
+fn get_corner_radii(cell: &CellCoordinate, occupied_cells: &[CellCoordinate]) -> Vec4 {
     let has_cell_up = occupied_cells.contains(&(*cell + (0, 1)));
     let has_cell_right = occupied_cells.contains(&(*cell + (1, 0)));
     let has_cell_down = occupied_cells.contains(&(*cell + (0, -1)));
@@ -82,7 +82,7 @@ const BOUNDARY_DISTANCE: f32 = (CELL_SIZE - CORNER_RADIUS) / 2.;
 fn render_cell_boundaries<R: Relationship>(
     builder: &mut RelatedSpawnerCommands<R>,
     cell: &CellCoordinate,
-    occupied_cells: &Vec<CellCoordinate>,
+    occupied_cells: &[CellCoordinate],
     light: Color,
     dark: Color,
 ) {

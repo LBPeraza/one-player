@@ -14,10 +14,10 @@ impl Plugin for PushingPlugin {
 
 #[derive(Clone, Copy, Debug)]
 pub enum PushDirection {
-    NORTH,
-    EAST,
-    SOUTH,
-    WEST,
+    North,
+    East,
+    South,
+    West,
 }
 
 impl std::ops::Add<PushDirection> for CellCoordinate {
@@ -25,19 +25,19 @@ impl std::ops::Add<PushDirection> for CellCoordinate {
 
     fn add(self, rhs: PushDirection) -> Self::Output {
         match rhs {
-            PushDirection::EAST => CellCoordinate {
+            PushDirection::East => CellCoordinate {
                 x: self.x + 1,
                 ..self
             },
-            PushDirection::NORTH => CellCoordinate {
+            PushDirection::North => CellCoordinate {
                 y: self.y + 1,
                 ..self
             },
-            PushDirection::SOUTH => CellCoordinate {
+            PushDirection::South => CellCoordinate {
                 y: self.y - 1,
                 ..self
             },
-            PushDirection::WEST => CellCoordinate {
+            PushDirection::West => CellCoordinate {
                 x: self.x - 1,
                 ..self
             },
@@ -48,10 +48,10 @@ impl std::ops::Add<PushDirection> for CellCoordinate {
 impl From<PickedQuadrant> for PushDirection {
     fn from(value: PickedQuadrant) -> Self {
         match value {
-            PickedQuadrant::EAST => Self::EAST,
-            PickedQuadrant::NORTH => Self::NORTH,
-            PickedQuadrant::SOUTH => Self::SOUTH,
-            PickedQuadrant::WEST => Self::WEST,
+            PickedQuadrant::East => Self::East,
+            PickedQuadrant::North => Self::North,
+            PickedQuadrant::South => Self::South,
+            PickedQuadrant::West => Self::West,
         }
     }
 }
