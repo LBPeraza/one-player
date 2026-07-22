@@ -38,6 +38,10 @@ fn spawn_test_blocks(mut commands: Commands) {
             ])),
             CellCoordinate::new(-1, -1),
         ),
+        (
+            Block::default().with_shape(BlockShape::new([[true; 3]; 3])),
+            CellCoordinate::new(-4, -1),
+        ),
     ];
     let hue_interval = 360. / (blocks.len() + 1) as f32;
     for (i, (block, cell)) in blocks.into_iter().enumerate() {

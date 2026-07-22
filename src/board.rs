@@ -30,6 +30,17 @@ impl CellCoordinate {
     }
 }
 
+impl std::ops::Add<(i32, i32)> for CellCoordinate {
+    type Output = Self;
+
+    fn add(self, (dx, dy): (i32, i32)) -> Self::Output {
+        Self {
+            x: self.x + dx,
+            y: self.y + dy,
+        }
+    }
+}
+
 #[derive(Resource, Default)]
 pub struct Board {
     occupants: HashMap<CellCoordinate, EntityHashSet>,

@@ -20,26 +20,26 @@ pub enum PushDirection {
     WEST,
 }
 
-impl std::ops::Add<&PushDirection> for &CellCoordinate {
+impl std::ops::Add<PushDirection> for CellCoordinate {
     type Output = CellCoordinate;
 
-    fn add(self, rhs: &PushDirection) -> Self::Output {
+    fn add(self, rhs: PushDirection) -> Self::Output {
         match rhs {
             PushDirection::EAST => CellCoordinate {
                 x: self.x + 1,
-                ..*self
+                ..self
             },
             PushDirection::NORTH => CellCoordinate {
                 y: self.y + 1,
-                ..*self
+                ..self
             },
             PushDirection::SOUTH => CellCoordinate {
                 y: self.y - 1,
-                ..*self
+                ..self
             },
             PushDirection::WEST => CellCoordinate {
                 x: self.x - 1,
-                ..*self
+                ..self
             },
         }
     }
@@ -101,7 +101,7 @@ fn on_push_block(
     }
     let mut pushed_blocks = EntityHashSet::new();
     for occupied_cell in block.shape.occupied_cells(*cell) {
-        let new_cell = &occupied_cell + &push_block.direction;
+        let new_cell = occupied_cell + push_block.direction;
         pushed_blocks.extend(board.add_occupant(new_cell, push_block.entity));
     }
     debug!("Multi-pushing {} blocks", pushed_blocks.len());
@@ -118,5 +118,5 @@ fn on_push_block(
     }
     commands
         .entity(push_block.entity)
-        .insert(cell + &push_block.direction);
+        .insert(*cell + push_block.direction);
 }
