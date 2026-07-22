@@ -1,7 +1,9 @@
 [package]
 name = "one-player"
+authors = ["Lukas Peraza <LBPeraza@users.noreply.github.com>"]
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 bevy = { version = "0.18.1" }
