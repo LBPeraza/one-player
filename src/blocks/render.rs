@@ -289,47 +289,36 @@ fn on_unpick_block(
     }
 }
 
+const PICK_HIGHLIGHT_RADIUS: f32 = CORNER_RADIUS * 1.5;
+
 fn on_pick_block(
     add: On<Add, PickedQuadrant>,
     mut commands: Commands,
-    mut query: Query<(&Block, &PickedQuadrant, &mut Transform)>,
+    mut query: Query<(&Block, &mut Transform)>,
 ) {
-    let (block, quadrant, mut tf) = query
+    let (block, mut tf) = query
         .get_mut(add.entity)
-        .expect("entity should have Block, PickedQuadrant, and Transform components");
+        .expect("entity should have Block, and Transform components");
     let indicator_color = block.color.rotate_hue(180.);
     tf.translation.z = 2.;
-    let rotation = match quadrant {
-        PickedQuadrant::EAST => 0.,
-        PickedQuadrant::NORTH => FRAC_PI_2,
-        PickedQuadrant::SOUTH => 3. * FRAC_PI_2,
-        PickedQuadrant::WEST => PI,
-    };
     commands.entity(add.entity).with_children(|builder| {
-        builder.spawn((
-            HoverIndicator,
-            ShapeBundle::rect(
-                &ShapeConfig {
-                    transform: Transform::from_translation(-Vec3::Z),
-                    color: indicator_color,
-                    corner_radii: Vec4::splat(CELL_SIZE / 12. + 2.),
-                    ..ShapeConfig::default_2d()
-                },
-                Vec2::splat(CELL_SIZE * 1.1),
-            ),
-        ));
-        builder.spawn((
-            HoverIndicator,
-            ShapeBundle::circle(
-                &ShapeConfig {
-                    transform: Transform::from_translation(
-                        Quat::from_rotation_z(rotation) * (Vec3::X * CELL_SIZE / 3. + Vec3::Z),
-                    ),
-                    color: indicator_color,
-                    ..ShapeConfig::default_2d()
-                },
-                CELL_SIZE / 10.,
-            ),
-        ));
+        for occupied_cell in block.shape.occupied_cells(default()) {
+            builder.spawn((
+                HoverIndicator,
+                ShapeBundle::rect(
+                    &ShapeConfig {
+                        transform: Transform::from_translation(Vec3::new(
+                            CELL_SIZE * occupied_cell.x as f32,
+                            CELL_SIZE * occupied_cell.y as f32,
+                            -0.5,
+                        )),
+                        color: indicator_color,
+                        corner_radii: Vec4::splat(PICK_HIGHLIGHT_RADIUS),
+                        ..ShapeConfig::default_2d()
+                    },
+                    Vec2::splat(CELL_SIZE + PICK_HIGHLIGHT_RADIUS),
+                ),
+            ));
+        }
     });
 }
