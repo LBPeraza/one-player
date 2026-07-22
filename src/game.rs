@@ -4,21 +4,17 @@ pub struct GamePlugin;
 
 use crate::blocks::*;
 use crate::board::*;
+use crate::camera::*;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((BoardPlugin, BlocksPlugin))
-            .add_systems(Startup, setup_camera)
+        app.add_plugins((BoardPlugin, BlocksPlugin, CameraPlugin))
             .add_systems(
                 Update,
                 push_block.run_if(input_just_pressed(MouseButton::Left)),
             )
             .add_observer(on_add_block);
     }
-}
-
-fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
 }
 
 fn push_block(

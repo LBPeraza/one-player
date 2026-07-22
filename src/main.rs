@@ -3,11 +3,12 @@ use bevy_vector_shapes::prelude::*;
 
 mod blocks;
 mod board;
+mod camera;
 mod game;
 
 use crate::blocks::*;
 use crate::board::*;
-use crate::game::GamePlugin;
+use crate::game::*;
 
 fn main() {
     App::new()
