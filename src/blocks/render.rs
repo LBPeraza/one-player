@@ -60,7 +60,7 @@ fn on_add_block(add: On<Add, Block>, mut commands: Commands, query: Query<&Block
     });
 }
 
-const CORNER_RADIUS: f32 = CELL_SIZE / 10.;
+const CORNER_RADIUS: f32 = CELL_SIZE / 16.;
 
 fn get_corner_radii(cell: &CellCoordinate, occupied_cells: &Vec<CellCoordinate>) -> Vec4 {
     let has_cell_up = occupied_cells.contains(&(*cell + (0, 1)));
