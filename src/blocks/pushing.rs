@@ -145,7 +145,9 @@ fn on_block_drag(
                 .expect("Block should have CellCoordinate component"),
             direction,
         });
-        commands.entity(drag.entity).insert(DragOrigin(target));
+        commands
+            .entity(drag.entity)
+            .insert(DragOrigin(*drag_origin + direction));
     }
 }
 
