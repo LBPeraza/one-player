@@ -71,7 +71,8 @@ fn on_add_block(add: On<Add, Block>, mut commands: Commands) {
         .entity(add.entity)
         .observe(on_block_drag_start)
         .observe(on_block_drag)
-        .observe(on_block_drag_end);
+        .observe(on_block_drag_end)
+        .observe(on_reached_target);
 }
 
 #[derive(Component)]
@@ -96,13 +97,35 @@ fn on_block_drag_end(drag: On<Pointer<DragEnd>>, mut commands: Commands) {
     commands.entity(drag.entity).try_remove::<DragOrigin>();
 }
 
+fn on_reached_target(reached: On<ReachedTarget>, mut commands: Commands) {
+    commands.entity(reached.entity).remove::<Moving>();
+}
+
+#[derive(Component)]
+pub struct Moving;
+
+#[derive(EntityEvent)]
+pub struct ReachedTarget {
+    entity: Entity,
+}
+
+impl ReachedTarget {
+    pub fn new(entity: Entity) -> Self {
+        Self { entity }
+    }
+}
+
 fn on_block_drag(
     drag: On<Pointer<Drag>>,
     mut commands: Commands,
+    moving: Query<&Moving>,
     drag_origins: Query<&DragOrigin>,
     block_origins: Query<&CellCoordinate>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
 ) {
+    if moving.contains(drag.entity) {
+        return;
+    }
     let Ok(DragOrigin(drag_origin)) = drag_origins.get(drag.entity) else {
         warn!("No drag origin on {}", drag.entity);
         return;
@@ -114,7 +137,6 @@ fn on_block_drag(
         return;
     };
     let target = CellCoordinate::from_world(world_cursor);
-    info!("\n=== Dragging\n  origin: {drag_origin:?}\n  target: {target:?}");
     if let Some(direction) = PushDirection::cell_to_cell(*drag_origin, target) {
         commands.trigger(PushBlock {
             entity: drag.entity,
@@ -167,5 +189,5 @@ fn on_push_block(
     }
     commands
         .entity(push_block.entity)
-        .insert(*cell + push_block.direction);
+        .insert((Moving, *cell + push_block.direction));
 }

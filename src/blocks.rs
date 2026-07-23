@@ -4,6 +4,8 @@ mod picking;
 mod pushing;
 mod render;
 
+pub use pushing::{Moving, ReachedTarget};
+
 use crate::board::CellCoordinate;
 
 pub struct BlocksPlugin;

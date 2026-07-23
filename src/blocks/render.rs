@@ -18,12 +18,33 @@ impl Plugin for RenderPlugin {
     }
 }
 
-type MovedBlock = (With<Block>, Changed<CellCoordinate>);
+type MovedBlock = (With<Block>, Or<(Changed<CellCoordinate>, With<Moving>)>);
 
-fn apply_block_transforms(blocks: Query<(&CellCoordinate, &mut Transform), MovedBlock>) {
-    for (CellCoordinate { x, y }, mut tf) in blocks {
+/// Movement speed per second
+///
+/// Move one cell in 0.2 seconds.
+const MOVE_SPEED: f32 = CELL_SIZE * 5.;
+
+fn apply_block_transforms(
+    mut commands: Commands,
+    blocks: Query<(Entity, &CellCoordinate, &mut Transform, Option<&Moving>), MovedBlock>,
+    time: Res<Time>,
+) {
+    for (entity, CellCoordinate { x, y }, mut tf, moving) in blocks {
         debug!("Applying translation to move block to ({x}, {y})");
-        tf.translation = CELL_SIZE * (Vec3::new(*x as f32, *y as f32, 0.));
+        let target = CELL_SIZE * (Vec3::new(*x as f32, *y as f32, 0.));
+        if moving.is_none() {
+            tf.translation = target;
+            continue;
+        }
+        let move_distance = MOVE_SPEED * time.delta_secs();
+        let diff = target - tf.translation;
+        if diff.length() <= move_distance {
+            tf.translation = target;
+            commands.trigger(ReachedTarget::new(entity));
+            continue;
+        }
+        tf.translation += diff.normalize() * move_distance;
     }
 }
 
