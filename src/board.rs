@@ -24,10 +24,6 @@ impl CellCoordinate {
     pub fn center(self) -> Vec2 {
         Vec2::new(self.x as f32, self.y as f32) * CELL_SIZE
     }
-
-    pub fn cell_position(self, world_position: Vec2) -> Vec2 {
-        world_position - self.center()
-    }
 }
 
 impl std::ops::Add<(i32, i32)> for CellCoordinate {
@@ -48,7 +44,9 @@ pub struct Board {
 
 impl Board {
     pub fn occupants_at(&self, position: &CellCoordinate) -> Option<&EntityHashSet> {
-        self.occupants.get(position)
+        self.occupants
+            .get(position)
+            .filter(|entities| !entities.is_empty())
     }
 
     /// Add entity to occupants at position and return the entities that were there before.
@@ -63,7 +61,11 @@ impl Board {
         let Some(entities) = self.occupants.get_mut(position) else {
             return false;
         };
-        entities.remove(entity)
+        let popped = entities.remove(entity);
+        if entities.is_empty() {
+            self.occupants.remove(position);
+        }
+        popped
     }
 }
 

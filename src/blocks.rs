@@ -4,9 +4,6 @@ mod picking;
 mod pushing;
 mod render;
 
-pub use picking::PickedQuadrant;
-pub use pushing::PushBlock;
-
 use crate::board::CellCoordinate;
 
 pub struct BlocksPlugin;

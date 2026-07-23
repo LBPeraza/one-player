@@ -1,4 +1,3 @@
-use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 pub struct GamePlugin;
 
@@ -9,25 +8,7 @@ use crate::camera::*;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((BoardPlugin, BlocksPlugin, CameraPlugin))
-            .add_systems(
-                Update,
-                push_block.run_if(input_just_pressed(MouseButton::Left)),
-            )
             .add_observer(on_add_block);
-    }
-}
-
-fn push_block(
-    mut commands: Commands,
-    picked: Query<(Entity, &PickedQuadrant), With<Block>>,
-    coordinates: Query<&CellCoordinate>,
-) {
-    for (entity, quadrant) in picked {
-        let Ok(from_coordinate) = coordinates.get(entity) else {
-            warn!("Block {entity} has no CellCoordinate component");
-            continue;
-        };
-        commands.trigger(PushBlock::from_pick(entity, *from_coordinate, *quadrant));
     }
 }
 

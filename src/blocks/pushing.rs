@@ -1,14 +1,14 @@
 use bevy::ecs::entity::EntityHashSet;
 use bevy::prelude::*;
 
-use crate::blocks::{Block, picking::PickedQuadrant};
+use crate::blocks::Block;
 use crate::board::*;
 
 pub struct PushingPlugin;
 
 impl Plugin for PushingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(on_push_block);
+        app.add_observer(on_add_block).add_observer(on_push_block);
     }
 }
 
@@ -18,6 +18,20 @@ pub enum PushDirection {
     East,
     South,
     West,
+}
+
+impl PushDirection {
+    fn cell_to_cell(from_cell: CellCoordinate, to_cell: CellCoordinate) -> Option<Self> {
+        let dx = to_cell.x - from_cell.x;
+        let dy = to_cell.y - from_cell.y;
+        if dx == 0 && dy == 0 {
+            None
+        } else if dx.abs() > dy.abs() {
+            Some(if dx > 0 { Self::East } else { Self::West })
+        } else {
+            Some(if dy > 0 { Self::North } else { Self::South })
+        }
+    }
 }
 
 impl std::ops::Add<PushDirection> for CellCoordinate {
@@ -45,17 +59,6 @@ impl std::ops::Add<PushDirection> for CellCoordinate {
     }
 }
 
-impl From<PickedQuadrant> for PushDirection {
-    fn from(value: PickedQuadrant) -> Self {
-        match value {
-            PickedQuadrant::East => Self::East,
-            PickedQuadrant::North => Self::North,
-            PickedQuadrant::South => Self::South,
-            PickedQuadrant::West => Self::West,
-        }
-    }
-}
-
 #[derive(EntityEvent)]
 pub struct PushBlock {
     entity: Entity,
@@ -63,17 +66,64 @@ pub struct PushBlock {
     direction: PushDirection,
 }
 
-impl PushBlock {
-    pub fn from_pick(
-        entity: Entity,
-        from_coordinate: CellCoordinate,
-        picked_quadrant: PickedQuadrant,
-    ) -> Self {
-        Self {
-            entity,
-            from_coordinate,
-            direction: picked_quadrant.into(),
-        }
+fn on_add_block(add: On<Add, Block>, mut commands: Commands) {
+    commands
+        .entity(add.entity)
+        .observe(on_block_drag_start)
+        .observe(on_block_drag)
+        .observe(on_block_drag_end);
+}
+
+#[derive(Component)]
+struct DragOrigin(CellCoordinate);
+
+fn on_block_drag_start(drag: On<Pointer<DragStart>>, mut commands: Commands) {
+    info!("Starting drag on {}", drag.entity);
+    let Some(drag_origin) = drag.hit.position else {
+        return;
+    };
+    let origin_coordinate = CellCoordinate::from_world(drag_origin.truncate());
+    info!("  origin: {}", drag_origin.truncate());
+    info!("  origin_coordinate: {:?}", origin_coordinate);
+    commands
+        .entity(drag.entity)
+        .insert(DragOrigin(CellCoordinate::from_world(
+            drag_origin.truncate(),
+        )));
+}
+
+fn on_block_drag_end(drag: On<Pointer<DragEnd>>, mut commands: Commands) {
+    commands.entity(drag.entity).try_remove::<DragOrigin>();
+}
+
+fn on_block_drag(
+    drag: On<Pointer<Drag>>,
+    mut commands: Commands,
+    drag_origins: Query<&DragOrigin>,
+    block_origins: Query<&CellCoordinate>,
+    camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
+) {
+    let Ok(DragOrigin(drag_origin)) = drag_origins.get(drag.entity) else {
+        warn!("No drag origin on {}", drag.entity);
+        return;
+    };
+    let (camera, camera_transform) = *camera;
+    let Ok(world_cursor) =
+        camera.viewport_to_world_2d(camera_transform, drag.pointer_location.position)
+    else {
+        return;
+    };
+    let target = CellCoordinate::from_world(world_cursor);
+    info!("\n=== Dragging\n  origin: {drag_origin:?}\n  target: {target:?}");
+    if let Some(direction) = PushDirection::cell_to_cell(*drag_origin, target) {
+        commands.trigger(PushBlock {
+            entity: drag.entity,
+            from_coordinate: *block_origins
+                .get(drag.entity)
+                .expect("Block should have CellCoordinate component"),
+            direction,
+        });
+        commands.entity(drag.entity).insert(DragOrigin(target));
     }
 }
 
@@ -96,7 +146,6 @@ fn on_push_block(
                 "Occupant {} not found in board at {occupied_cell:?}",
                 push_block.entity
             );
-            return;
         }
     }
     let mut pushed_blocks = EntityHashSet::new();
