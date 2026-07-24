@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 mod picking;
 mod pushing;
-mod render;
+pub mod render;
 
 pub use pushing::{Moving, ReachedTarget};
 
@@ -45,7 +45,7 @@ impl Block {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct BlockShape {
     pub width: usize,
     cells: Vec<bool>,

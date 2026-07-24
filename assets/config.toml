@@ -1,0 +1,6 @@
+block_size = 50
+
+[render]
+border_scale = 0.05
+move_speed = 10
+highlight_scale = 3

@@ -1,20 +1,28 @@
 use bevy::picking::backend::prelude::*;
 use bevy::prelude::*;
 
-use crate::board::{Board, CellCoordinate};
+use crate::board::*;
+use crate::config::Config;
+use crate::game::GameState;
 
 pub struct PickingPlugin;
 
 impl Plugin for PickingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, pick_blocks);
+        app.add_systems(PreUpdate, pick_blocks.run_if(in_state(GameState::Playing)));
     }
 }
 
-fn pick_blocks(ray_map: Res<RayMap>, board: Res<Board>, mut hits: MessageWriter<PointerHits>) {
+fn pick_blocks(
+    ray_map: Res<RayMap>,
+    board: Res<Board>,
+    mut hits: MessageWriter<PointerHits>,
+    config: Res<Config>,
+) {
     for (&ray_id, ray) in ray_map.iter() {
         let cursor_world = ray.origin.truncate();
-        let Some(picked_blocks) = board.occupants_at(&CellCoordinate::from_world(cursor_world))
+        let Some(picked_blocks) =
+            board.occupants_at(&CellCoordinate::from_world(cursor_world, config.block_size))
         else {
             continue;
         };

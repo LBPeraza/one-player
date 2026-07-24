@@ -4,6 +4,7 @@ use bevy_vector_shapes::prelude::*;
 mod blocks;
 mod board;
 mod camera;
+mod config;
 mod game;
 
 use crate::blocks::*;
@@ -13,7 +14,7 @@ use crate::game::*;
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, Shape2dPlugin::default(), GamePlugin))
-        .add_systems(Startup, spawn_test_blocks)
+        .add_systems(OnEnter(GameState::Playing), spawn_test_blocks)
         .run();
 }
 

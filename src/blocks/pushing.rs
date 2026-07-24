@@ -3,6 +3,7 @@ use bevy::prelude::*;
 
 use crate::blocks::Block;
 use crate::board::*;
+use crate::config::Config;
 
 pub struct PushingPlugin;
 
@@ -78,18 +79,19 @@ fn on_add_block(add: On<Add, Block>, mut commands: Commands) {
 #[derive(Component)]
 struct DragOrigin(CellCoordinate);
 
-fn on_block_drag_start(drag: On<Pointer<DragStart>>, mut commands: Commands) {
-    info!("Starting drag on {}", drag.entity);
+fn on_block_drag_start(drag: On<Pointer<DragStart>>, mut commands: Commands, config: Res<Config>) {
+    debug!("Starting drag on {}", drag.entity);
     let Some(drag_origin) = drag.hit.position else {
         return;
     };
-    let origin_coordinate = CellCoordinate::from_world(drag_origin.truncate());
-    info!("  origin: {}", drag_origin.truncate());
-    info!("  origin_coordinate: {:?}", origin_coordinate);
+    let origin_coordinate = CellCoordinate::from_world(drag_origin.truncate(), config.block_size);
+    debug!("  origin: {}", drag_origin.truncate());
+    debug!("  origin_coordinate: {:?}", origin_coordinate);
     commands
         .entity(drag.entity)
         .insert(DragOrigin(CellCoordinate::from_world(
             drag_origin.truncate(),
+            config.block_size,
         )));
 }
 
@@ -122,6 +124,7 @@ fn on_block_drag(
     drag_origins: Query<&DragOrigin>,
     block_origins: Query<&CellCoordinate>,
     camera: Single<(&Camera, &GlobalTransform), With<Camera2d>>,
+    config: Res<Config>,
 ) {
     if moving.contains(drag.entity) {
         return;
@@ -136,7 +139,7 @@ fn on_block_drag(
     else {
         return;
     };
-    let target = CellCoordinate::from_world(world_cursor);
+    let target = CellCoordinate::from_world(world_cursor, config.block_size);
     if let Some(direction) = PushDirection::cell_to_cell(*drag_origin, target) {
         commands.trigger(PushBlock {
             entity: drag.entity,
@@ -170,6 +173,7 @@ fn on_push_block(
                 "Occupant {} not found in board at {occupied_cell:?}",
                 push_block.entity
             );
+            return;
         }
     }
     let mut pushed_blocks = EntityHashSet::new();

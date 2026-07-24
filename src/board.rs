@@ -1,7 +1,5 @@
 use bevy::{ecs::entity::EntityHashSet, platform::collections::HashMap, prelude::*};
 
-pub const CELL_SIZE: f32 = 64.0;
-
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, Component)]
 pub struct CellCoordinate {
     pub x: i32,
@@ -13,16 +11,16 @@ impl CellCoordinate {
         Self { x, y }
     }
 
-    pub fn from_world(world_position: Vec2) -> Self {
-        let normalized = world_position + Vec2::splat(CELL_SIZE / 2.);
+    pub fn from_world(world_position: Vec2, cell_size: f32) -> Self {
+        let normalized = world_position + Vec2::splat(cell_size / 2.);
         Self {
-            x: (normalized.x / CELL_SIZE).floor() as i32,
-            y: (normalized.y / CELL_SIZE).floor() as i32,
+            x: (normalized.x / cell_size).floor() as i32,
+            y: (normalized.y / cell_size).floor() as i32,
         }
     }
 
-    pub fn center(self) -> Vec2 {
-        Vec2::new(self.x as f32, self.y as f32) * CELL_SIZE
+    pub fn center(&self, cell_size: f32) -> Vec2 {
+        Vec2::new(self.x as f32, self.y as f32) * cell_size
     }
 }
 
